@@ -1,21 +1,26 @@
 package main
 
-import "fmt"
+import (
+	"./components"
+	"./scanner"
+	"flag"
+	"github.com/golang/glog"
+	"os"
+	"path"
+	"strings"
+	"sync"
+	"time"
+)
 
-import "time"
-import "path"
-import "./scanner"
-import "os"
-import "./components"
-import "strings"
-import "sync"
+func init() {
+	flag.Parse()
+}
 
 func main() {
-
-	inputArgs := os.Args[1:]
+	inputArgs := flag.Args()[0:]
 	if len(inputArgs) != 2 {
-		fmt.Println("Usage: main <scan_path> <comma separated whitelist>")
-		fmt.Println("eg : main Inbox/ 'Media,Transcode'")
+		glog.V(2).Infof("Usage: main <scan_path> <comma separated whitelist>")
+		glog.V(2).Infof("eg : main Inbox/ 'Media,Transcode'")
 		os.Exit(1)
 	}
 
@@ -30,7 +35,8 @@ func main() {
 		go w.Scan()
 		end := <-ch
 		if end == "__DONE" {
-			fmt.Println("Waiting for next scan")
+			glog.V(2).Infof("Waiting for next scan")
+			glog.Flush()
 			time.Sleep(time.Second * 30)
 		}
 	}
@@ -41,7 +47,7 @@ func process(c <-chan string, ch chan<- string, token chan struct{}) {
 	for {
 		filepath := <-c
 		if filepath == "__EOF" {
-			fmt.Println("End of current Scan")
+			glog.V(2).Infof("End of current Scan")
 			wg.Wait()
 			ch <- "__DONE"
 		} else if len(filepath) > 0 {
