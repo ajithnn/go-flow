@@ -6,8 +6,9 @@ import "time"
 import "path"
 import "./scanner"
 import "os"
-import "./ProcessTypes"
+import "./components"
 import "strings"
+import "sync"
 
 func main() {
 
@@ -36,34 +37,31 @@ func main() {
 }
 
 func process(c <-chan string, ch chan<- string, token chan struct{}) {
+	var wg sync.WaitGroup
 	for {
 		filepath := <-c
 		if filepath == "__EOF" {
 			fmt.Println("End of current Scan")
+			wg.Wait()
 			ch <- "__DONE"
 		} else if len(filepath) > 0 {
-			fmt.Println("Scanned ", filepath)
 			typeToProcess := getTypeFromFilePath(filepath)
-			actualProcess(typeToProcess, filepath, token)
+			actualProcess(typeToProcess, filepath, token, &wg)
 		}
 	}
 }
 
-func getTypeFromFilePath(filepath string) interface{} {
+func getTypeFromFilePath(filepath string) components.Asset {
 	dir := path.Dir(filepath)
 	if strings.Contains(dir, "media") {
-		return ProcessTypes.Media{}
+		return components.Media{}
 	} else {
-		return ProcessTypes.Meta{}
+		return components.Meta{}
 	}
 }
 
-func actualProcess(processType interface{}, filepath string, token chan struct{}) {
+func actualProcess(processType components.Asset, filepath string, token chan struct{}, wg *sync.WaitGroup) {
 	token <- struct{}{}
-	switch val := processType.(type) {
-	case ProcessTypes.Media:
-		go val.Process(filepath, token)
-	case ProcessTypes.Meta:
-		go val.Process(filepath, token)
-	}
+	wg.Add(1)
+	go processType.Process(filepath, token, wg)
 }

@@ -57,10 +57,8 @@ func (w FileScanner) isWhiteListed(basePath string, curFilePath string) bool {
 
 func process_files(w FileScanner) filepath.WalkFunc {
 	return func(pth string, info os.FileInfo, err error) error {
-		fmt.Println("Path ", pth)
 		if !info.IsDir() {
 			if w.isWhiteListed(w.Path, pth) && w.isLock(pth, info) {
-				fmt.Println("File ", pth, "available for processing, passing to process list.")
 				w.OutChannel <- pth
 			} else {
 				fmt.Println("Path ", pth, " not in whitelist")
