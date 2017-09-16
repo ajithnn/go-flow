@@ -1,12 +1,12 @@
 package main
 
 import "fmt"
+
 import "time"
-import "sync"
 import "path"
 import "./scanner"
-import "os/exec"
 import "os"
+import "./ProcessTypes"
 import "strings"
 
 func main() {
@@ -22,9 +22,8 @@ func main() {
 	scanPath := inputArgs[0]
 	whiteList := strings.Split(inputArgs[1], ",")
 
-	var wg sync.WaitGroup
 	ch := make(chan string)
-	w := scanner.FileScanner{scanPath, 30.00, make(chan string), wg, whiteList}
+	w := scanner.FileScanner{scanPath, 30.00, make(chan string), whiteList}
 	for {
 		go process(w.OutChannel, ch, token)
 		go w.Scan()
@@ -38,27 +37,33 @@ func main() {
 
 func process(c <-chan string, ch chan<- string, token chan struct{}) {
 	for {
-		msg := <-c
-		fmt.Println("Read", msg)
-		if msg == "__EOF" {
-			fmt.Println("Read ", msg)
+		filepath := <-c
+		if filepath == "__EOF" {
+			fmt.Println("End of current Scan")
 			ch <- "__DONE"
-		} else if len(msg) > 0 {
-			fmt.Println("Processing " + msg)
-			go actualProcess(msg, token)
+		} else if len(filepath) > 0 {
+			fmt.Println("Scanned ", filepath)
+			typeToProcess := getTypeFromFilePath(filepath)
+			actualProcess(typeToProcess, filepath, token)
 		}
 	}
 }
 
-func actualProcess(fullFilePath string, token chan struct{}) {
-	token <- struct{}{}
-	fmt.Println("token acquired for " + fullFilePath)
-	cmd := exec.Command("ffmpeg", "-y", "-i", fullFilePath, path.Join("outbox", path.Base(fullFilePath)))
-	_, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Println(err)
+func getTypeFromFilePath(filepath string) interface{} {
+	dir := path.Dir(filepath)
+	if strings.Contains(dir, "media") {
+		return ProcessTypes.Media{}
+	} else {
+		return ProcessTypes.Meta{}
 	}
-	fmt.Println("token reverted for " + fullFilePath)
-	<-token
-	return
+}
+
+func actualProcess(processType interface{}, filepath string, token chan struct{}) {
+	token <- struct{}{}
+	switch val := processType.(type) {
+	case ProcessTypes.Media:
+		go val.Process(filepath, token)
+	case ProcessTypes.Meta:
+		go val.Process(filepath, token)
+	}
 }
