@@ -1,9 +1,9 @@
 package main
 
 import (
-	"./components"
-	"./scanner"
 	"flag"
+	"github.com/ajithnn/go-flow/components"
+	"github.com/ajithnn/go-flow/scanner"
 	"github.com/golang/glog"
 	"os"
 	"path"
