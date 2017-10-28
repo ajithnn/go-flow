@@ -1,0 +1,10 @@
+{
+	"Media":{
+		"capacity":2,
+		"type":"separate"
+	},
+	"Meta":{
+		"capacity":1,
+		"type":"common"
+	}
+}
