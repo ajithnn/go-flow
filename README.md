@@ -24,6 +24,12 @@ go get github.com/ajithnn/go-flow
 5. Pipeline type separate - Each pipe will get dedicated capacity.
 6. Configure in components/asset.go file the TypeMap resgistry after defining a pipe.
 
+## Run
+
+go run scan_folder.go -logtostderr=true -v=2 <Inbox Path> <Comma separated whitelist of folders>
+
+Example:
+go run scan_folder.go -logtostderr=true -v=2 "./Inbox/" "Media,Meta"
 
 ## More to do
 

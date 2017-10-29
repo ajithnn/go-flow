@@ -26,8 +26,9 @@ func init() {
 func main() {
   inputArgs := flag.Args()[0:]
   if len(inputArgs) != 2 {
-    glog.V(2).Infof("Usage: main <scan_path> <comma separated whitelist>")
-    glog.V(2).Infof("eg : main Inbox/ 'Media,Transcode'")
+
+    glog.V(2).Infof("Usage:")
+    glog.V(2).Infof("go run scan_folder.go -logtostderr=true -v=2 <Inbox Path> <Comma separated whitelist of folders>")
     os.Exit(1)
   }
   readConfigAndCreateChannels()
