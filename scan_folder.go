@@ -10,14 +10,13 @@ import (
   "io/ioutil"
   "path"
   "strings"
-  "sync"
   "time"
 )
 
 
 var pipeChannels = make(map[string](chan struct{}))
 var channelTypes = make(map[string]string)
-var channelState = make(map[string]int)
+var processList = make(map[string]bool)
 
 func init() {
   flag.Parse()
@@ -50,16 +49,14 @@ func main() {
 }
 
 func process(c <-chan string, ch chan<- string) {
-  var wg sync.WaitGroup
   for {
     filepath := <-c
     if filepath == "__EOF" {
-      glog.V(2).Infof("End of current Scan")
-      wg.Wait()
+      glog.V(2).Infof("End of current Scan will continue after wait.")
       ch <- "__DONE"
     } else if len(filepath) > 0 {
       typeToProcess,typeName := getTypeFromFilePath(filepath)
-      actualProcess(typeToProcess, typeName, filepath, &wg)
+      actualProcess(typeToProcess, typeName, filepath)
     }
   }
 }
@@ -67,15 +64,19 @@ func process(c <-chan string, ch chan<- string) {
 func readConfigAndCreateChannels(){
   configFilePath := "./pipes.json"
   var tempPipe interface{}
+  commonChannel := make(chan struct{},1)
   configFile, _ := ioutil.ReadFile(configFilePath)
   json.Unmarshal(configFile, &tempPipe)
   curPipe := tempPipe.(map[string]interface{})
   for k,v := range curPipe{
     tempType := v.(map[string]interface{})
     glog.V(2).Infof("String %s Media values %f",k,tempType["capacity"].(float64))
-    pipeChannels[k] = make(chan struct{},int(tempType["capacity"].(float64)))
+    if tempType["type"] == "separate"{
+      pipeChannels[k] = make(chan struct{},int(tempType["capacity"].(float64)))
+    }else{
+      pipeChannels[k] =commonChannel
+    }
     channelTypes[k] = tempType["type"].(string)
-    channelState[k] = 0
   }
 }
 
@@ -89,55 +90,17 @@ func getTypeFromFilePath(filepath string) (components.Asset,string) {
   return components.NotImplemented{},""
 }
 
-func allowCommonchannels() bool {
-  ret := true
-  for pipeName,_ := range pipeChannels{
-    if channelTypes[pipeName] == "separate"{
-      if channelState[pipeName] > 0{
-        ret = false
-        break
-      }
-    }
-  }
-  return ret
-}
-
-func actualProcess(processType components.Asset,typeName string, filepath string, wg *sync.WaitGroup) {
-  for pipeName,pipeChannel := range pipeChannels{
-    if pipeName == typeName && channelTypes[pipeName] == "separate" {
-      select {
-      case pipeChannel <- struct{}{}:
-        wg.Add(1)
-        go processType.Process(filepath,func(){
-          <-pipeChannel
-          channelState[typeName]--
-          wg.Done()
-        })
-        channelState[typeName]++
-      default:
-        glog.V(2).Infof("All channels blocked for type %s",typeName)
-      }
-    }
-  }
-  if allowCommonchannels(){
-    BreakToHere:
-    for pipeName,pipeChannel := range pipeChannels{
-      if pipeName == typeName && channelTypes[pipeName] == "common" {
-        select {
-        case pipeChannel <- struct{}{}:
-          wg.Add(1)
-          go processType.Process(filepath,func(){
-            <-pipeChannel
-            channelState[typeName]--
-            wg.Done()
-          })
-          channelState[typeName]++
-          break BreakToHere
-        default:
-          glog.V(2).Infof("All channels blocked for type %s",typeName)
-        }
-      }
+func actualProcess(processType components.Asset,typeName string, filepath string) {
+  if _,ok := processList[filepath]; !ok {
+    select {
+    case pipeChannels[typeName] <- struct{}{}:
+      processList[filepath] = true
+      go processType.Process(filepath,func(){
+        delete(processList,filepath)
+        <-pipeChannels[typeName]
+      })
+    default:
+      glog.V(2).Infof("All channels blocked for type %s",typeName)
     }
   }
 }
-
