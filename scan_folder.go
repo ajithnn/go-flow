@@ -3,6 +3,7 @@ package main
 import (
   "flag"
   "github.com/ajithnn/go-flow/components"
+  "github.com/ajithnn/go-flow/utils"
   "github.com/ajithnn/go-flow/scanner"
   "github.com/golang/glog"
   "os"
@@ -17,6 +18,7 @@ import (
 var pipeChannels = make(map[string](chan struct{}))
 var channelTypes = make(map[string]string)
 var processList = make(map[string]bool)
+var filePathList []string
 
 func init() {
   flag.Parse()
@@ -53,11 +55,21 @@ func process(c <-chan string, ch chan<- string) {
     filepath := <-c
     if filepath == "__EOF" {
       glog.V(2).Infof("End of current Scan will continue after wait.")
+      pushByPriority(filePathList)
       ch <- "__DONE"
     } else if len(filepath) > 0 {
-      typeToProcess,typeName := getTypeFromFilePath(filepath)
-      actualProcess(typeToProcess, typeName, filepath)
+      filePathList = append(filePathList,filepath)
     }
+  }
+}
+
+func pushByPriority(fileList []string){
+  filePathList = utils.GetPrioritizedList(fileList)
+  filepath := ""
+  for len(filePathList) > 0 {
+    filepath,filePathList = filePathList[0], filePathList[1:]
+    typeToProcess,typeName := getTypeFromFilePath(filepath)
+    actualProcess(typeToProcess, typeName, filepath)
   }
 }
 
@@ -98,6 +110,7 @@ func actualProcess(processType components.Asset,typeName string, filepath string
       go processType.Process(filepath,func(){
         delete(processList,filepath)
         <-pipeChannels[typeName]
+        glog.V(2).Infof("Released channel and cleared file hold.")
       })
     default:
       glog.V(2).Infof("All channels blocked for type %s",typeName)
