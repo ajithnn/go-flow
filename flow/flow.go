@@ -52,7 +52,7 @@ func Trigger(config Flow) {
     if end == "__DONE" {
       glog.V(2).Infof("Waiting for next scan")
       glog.Flush()
-      time.Sleep(time.Second * FlowConfig.ScanTimeout)
+      time.Sleep(FlowConfig.ScanTimeout)
     }
   }
 }
