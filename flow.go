@@ -24,12 +24,12 @@ func (n notImplemented) Process(filepath string,postProcess func()){
 }
 
 type Flow struct{
-  scanPath string,
-  pipePath string,
-  whiteList string,
-  timeout float64,
-  scanTimeout int,
-  typeMap map[string]Asset,
+  scanPath string
+  pipePath string
+  whiteList string
+  timeout float64
+  scanTimeout time.Duration
+  typeMap map[string]Asset
   getPrioritizedList func([]string)[]string
 }
 
@@ -37,12 +37,14 @@ var pipeChannels = make(map[string](chan struct{}))
 var channelTypes = make(map[string]string)
 var processList = make(map[string]bool)
 var filePathList []string
+var FlowConfig Flow
 
-func Trigger(FlowConfig Flow) {
+func Trigger(config Flow) {
+  FlowConfig = config
   readConfigAndCreateChannels()
 
   ch := make(chan string)
-  w := scanner.FileScanner{FlowConfig.scanPath, FlowConfig.timeout, make(chan string), FlowConfig.whiteList}
+  w := scanner.FileScanner{FlowConfig.scanPath, FlowConfig.timeout, make(chan string), strings.Split(FlowConfig.whiteList,",")}
   for {
     go process(w.OutChannel, ch)
     go w.Scan()
