@@ -1,12 +1,8 @@
-package main
+package flow
 
 import (
-  "flag"
-  "github.com/ajithnn/go-flow/components"
-  "github.com/ajithnn/go-flow/utils"
   "github.com/ajithnn/go-flow/scanner"
   "github.com/golang/glog"
-  "os"
   "encoding/json"
   "io/ioutil"
   "path"
@@ -14,30 +10,39 @@ import (
   "time"
 )
 
+type Asset interface {
+  Process(string, func())
+}
+
+type notImplemented struct{
+}
+
+func (n notImplemented) Process(filepath string,postProcess func()){
+  defer postProcess()
+  glog.V(2).Info("Type not found , unable to process",filepath)
+  return
+}
+
+type Flow struct{
+  scanPath string,
+  pipePath string,
+  whiteList string,
+  timeout float64,
+  scanTimeout int,
+  typeMap map[string]Asset,
+  getPrioritizedList func([]string)[]string
+}
 
 var pipeChannels = make(map[string](chan struct{}))
 var channelTypes = make(map[string]string)
 var processList = make(map[string]bool)
 var filePathList []string
 
-func init() {
-  flag.Parse()
-}
-
-func main() {
-  inputArgs := flag.Args()[0:]
-  if len(inputArgs) != 2 {
-
-    glog.V(2).Infof("Usage:")
-    glog.V(2).Infof("go run scan_folder.go -logtostderr=true -v=2 <Inbox Path> <Comma separated whitelist of folders>")
-    os.Exit(1)
-  }
+func Trigger(FlowConfig Flow) {
   readConfigAndCreateChannels()
-  scanPath := inputArgs[0]
-  whiteList := strings.Split(inputArgs[1], ",")
 
   ch := make(chan string)
-  w := scanner.FileScanner{scanPath, 30.00, make(chan string), whiteList}
+  w := scanner.FileScanner{FlowConfig.scanPath, FlowConfig.timeout, make(chan string), FlowConfig.whiteList}
   for {
     go process(w.OutChannel, ch)
     go w.Scan()
@@ -45,7 +50,7 @@ func main() {
     if end == "__DONE" {
       glog.V(2).Infof("Waiting for next scan")
       glog.Flush()
-      time.Sleep(time.Second * 30)
+      time.Sleep(time.Second * FlowConfig.scanTimeout)
     }
   }
 }
@@ -64,7 +69,7 @@ func process(c <-chan string, ch chan<- string) {
 }
 
 func pushByPriority(fileList []string){
-  filePathList = utils.GetPrioritizedList(fileList)
+  filePathList = FlowConfig.getPrioritizedList(fileList)
   filepath := ""
   for len(filePathList) > 0 {
     filepath,filePathList = filePathList[0], filePathList[1:]
@@ -74,7 +79,7 @@ func pushByPriority(fileList []string){
 }
 
 func readConfigAndCreateChannels(){
-  configFilePath := "./pipes.json"
+  configFilePath := FlowConfig.pipePath
   var tempPipe interface{}
   commonChannel := make(chan struct{},1)
   configFile, _ := ioutil.ReadFile(configFilePath)
@@ -92,17 +97,17 @@ func readConfigAndCreateChannels(){
   }
 }
 
-func getTypeFromFilePath(filepath string) (components.Asset,string) {
+func getTypeFromFilePath(filepath string) (Asset,string) {
   dir := path.Dir(filepath)
   for k := range pipeChannels{
     if strings.Contains(strings.ToLower(dir),strings.ToLower(k)){
-      return components.TypeMap[k],k
+      return FlowConfig.typeMap[k],k
     }
   }
-  return components.NotImplemented{},""
+  return notImplemented{},""
 }
 
-func actualProcess(processType components.Asset,typeName string, filepath string) {
+func actualProcess(processType Asset,typeName string, filepath string) {
   if _,ok := processList[filepath]; !ok {
     select {
     case pipeChannels[typeName] <- struct{}{}:
