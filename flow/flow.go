@@ -113,12 +113,14 @@ func actualProcess(processType Asset,typeName string, filepath string) {
   if _,ok := processList[filepath]; !ok {
     select {
     case pipeChannels[typeName] <- struct{}{}:
-      processList[filepath] = true
-      go processType.Process(filepath,func(){
-        delete(processList,filepath)
-        <-pipeChannels[typeName]
-        glog.V(2).Infof("Released channel and cleared file hold.")
-      })
+      if _, err := os.Stat(filepath); !os.IsNotExist(err) {
+        processList[filepath] = true
+        go processType.Process(filepath,func(){
+          delete(processList,filepath)
+          <-pipeChannels[typeName]
+          glog.V(2).Infof("Released channel and cleared file hold.")
+        })
+      }
     default:
       glog.V(2).Infof("All channels blocked for type %s",typeName)
     }
