@@ -8,6 +8,7 @@ import (
   "path"
   "strings"
   "time"
+  "os"
 )
 
 type Asset interface {
