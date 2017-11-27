@@ -45,7 +45,7 @@ func Trigger(config Flow) {
   readConfigAndCreateChannels()
 
   ch := make(chan string)
-  w := scanner.FileScanner{FlowConfig.ScanPath, FlowConfig.Timeout, make(chan string), strings.Split(FlowConfig.WhiteList,",")}
+  w := scanner.FileScanner{FlowConfig.ScanPath, FlowConfig.Timeout, make(chan string), strings.Split(FlowConfig.WhiteList,","),&processList}
   for {
     go process(w.OutChannel, ch)
     go w.Scan()
@@ -111,19 +111,17 @@ func getTypeFromFilePath(filepath string) (Asset,string) {
 }
 
 func actualProcess(processType Asset,typeName string, filepath string) {
-  if _,ok := processList[filepath]; !ok {
-    select {
-    case pipeChannels[typeName] <- struct{}{}:
-      if _, err := os.Stat(filepath); !os.IsNotExist(err) {
-        processList[filepath] = true
-        go processType.Process(filepath,func(){
-          delete(processList,filepath)
-          <-pipeChannels[typeName]
-          glog.V(2).Infof("Released channel and cleared file hold.")
-        })
-      }
-    default:
-      glog.V(2).Infof("All channels blocked for type %s",typeName)
+  select {
+  case pipeChannels[typeName] <- struct{}{}:
+    if _, err := os.Stat(filepath); !os.IsNotExist(err) {
+      processList[filepath] = true
+      go processType.Process(filepath,func(){
+        delete(processList,filepath)
+        <-pipeChannels[typeName]
+        glog.V(2).Infof("Released channel and cleared file hold.")
+      })
     }
+  default:
+    glog.V(2).Infof("All channels blocked for type %s",typeName)
   }
 }
