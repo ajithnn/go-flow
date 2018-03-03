@@ -1,7 +1,7 @@
 package flow
 
 import (
-  "github.com/ajithnn/go-flow/scanner"
+  scanner "github.com/ajithnn/sense"
   "github.com/golang/glog"
   "encoding/json"
   "io/ioutil"

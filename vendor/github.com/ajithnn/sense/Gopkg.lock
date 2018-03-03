@@ -3,12 +3,6 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/ajithnn/sense"
-  packages = ["."]
-  revision = "73856f1375f529691e6fd6a87d5545894d606a7e"
-
-[[projects]]
-  branch = "master"
   name = "github.com/golang/glog"
   packages = ["."]
   revision = "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
@@ -16,6 +10,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d061340ba708955f0d1500fc304393ebea198269e9d1010eade7bce8fb8cb939"
+  inputs-digest = "454135964cda5a10cad248157b586667c7a743e1417af192221b5cecbd0bae20"
   solver-name = "gps-cdcl"
   solver-version = 1
