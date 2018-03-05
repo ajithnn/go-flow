@@ -1,4 +1,4 @@
-# go-flow
+# Nadi (https://www.yogapedia.com/definition/5028/nadi)
 
 Pipe WorkFlow manager through watch folders.Designed for use with processing workflows involving movement between different folders for different stages.
 
