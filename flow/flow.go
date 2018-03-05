@@ -12,13 +12,13 @@ import (
 )
 
 type Stage interface {
-	Process(string, func())
+	Process(string, interface{}, func())
 }
 
 type notImplemented struct {
 }
 
-func (n notImplemented) Process(filepath string, postProcess func()) {
+func (n notImplemented) Process(filepath string, config interface{}, postProcess func()) {
 	defer postProcess()
 	glog.V(2).Info("Type not found , unable to process", filepath)
 	return
@@ -37,6 +37,7 @@ type Flow struct {
 var pipeChannels = make(map[string](chan struct{}))
 var channelTypes = make(map[string]string)
 var processList = make(map[string]bool)
+var typeConfig = make(map[string]interface{})
 var filePathList []string
 var FlowConfig Flow
 
@@ -90,13 +91,14 @@ func readConfigAndCreateChannels() {
 	curPipe := tempPipe.(map[string]interface{})
 	for k, v := range curPipe {
 		tempType := v.(map[string]interface{})
-		glog.V(2).Infof("String %s Media values %f", k, tempType["capacity"].(float64))
-		if tempType["type"] == "separate" {
+		glog.V(2).Infof("Type and Concurrency : ", k, tempType["capacity"].(float64))
+		if tempType["type"].(string) == "separate" {
 			pipeChannels[k] = make(chan struct{}, int(tempType["capacity"].(float64)))
 		} else {
 			pipeChannels[k] = commonChannel
 		}
 		channelTypes[k] = tempType["type"].(string)
+		typeConfig[k] = tempType["config"]
 	}
 }
 
@@ -115,7 +117,7 @@ func actualProcess(processType Stage, typeName string, filepath string) {
 	case pipeChannels[typeName] <- struct{}{}:
 		if _, err := os.Stat(filepath); !os.IsNotExist(err) {
 			processList[filepath] = true
-			go processType.Process(filepath, func() {
+			go processType.Process(filepath, typeConfig[typeName], func() {
 				delete(processList, filepath)
 				<-pipeChannels[typeName]
 				glog.V(2).Infof("Released channel and cleared file hold.")
